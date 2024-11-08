@@ -109,7 +109,7 @@ class InteractiveEducationAgent:
                 "academic_percentage": 0,
                 "backlogs": 0,
                 "work_experience": 0,
-                "is_three_year_degree": False,
+                "is_three_year_degree": True,
                 "preferred_locations": [],
                 "budget": 0,
                 "timeline": ""
@@ -203,8 +203,17 @@ class InteractiveEducationAgent:
         while not self.student_info["name"]:
             response = self.listen()
             if response:
-                self.student_info["name"] = response
-                self.speak(f"Nice to meet you, {response}! Let me help you find the perfect educational program.")
+                # Extract name by removing common prefixes
+                name = response.lower()
+                prefixes = ["my name is ", "i am ", "i'm ", "this is ", "name is "]
+                for prefix in prefixes:
+                    if name.startswith(prefix):
+                        name = name.replace(prefix, "", 1)
+                
+                # Capitalize the first letter of each word in the name
+                name = name.title()
+                self.student_info["name"] = name
+                self.speak(f"Nice to meet you, {name}! Let me help you find the perfect educational program.")
 
         # Get academic percentage
         self.speak("What was your academic percentage in your previous degree?")
@@ -244,24 +253,38 @@ class InteractiveEducationAgent:
                 experience = self.convert_spoken_number(response)
                 
                 if experience is not None:
-                    self.student_info["work_experience"] = experience
+                    self.student_info["work_experience"] = experience  # Store as is
                     if experience == 0:
                         self.speak("Noted, no work experience.")
                     else:
                         year_word = "year" if experience == 1 else "years"
-                        self.speak(f"Understood. You have {experience} {year_word} of work experience")
+                        # Format the number without decimal if it's a whole number
+                        exp_str = str(int(experience)) if experience.is_integer() else str(experience)
+                        self.speak(f"Understood. You have {exp_str} {year_word} of work experience")
                     break
                 else:
                     self.speak("Could you please say that again? For example, 'two years' or 'no experience'")
 
-        # Check three-year degree
-        self.speak("Do you have a three-year degree?")
-        while "is_three_year_degree" not in self.student_info:
+        # Check bachelor degree type and name
+        self.speak("Do you have a three or four year bachelor degree?")
+        while True:
             response = self.listen()
             if response:
-                is_three_year = any(word in response.lower() for word in ['yes', 'yeah', 'true', 'correct'])
-                self.student_info["is_three_year_degree"] = is_three_year
-                self.speak("Thank you for that information")
+                if any(word in response.lower() for word in ['yes', 'yeah', 'true', 'correct']):
+                    self.speak("What is your bachelor degree name? For example, B.Tech, BCA, etc.")
+                    degree_response = self.listen()
+                    if degree_response:
+                        self.student_info["degree_name"] = degree_response
+                        self.student_info["has_bachelor"] = True
+                        self.speak(f"Got it, you have a {degree_response} degree.")
+                        break
+                elif any(word in response.lower() for word in ['no', 'nope', 'false']):
+                    self.student_info["has_bachelor"] = False
+                    self.student_info["degree_name"] = None
+                    self.speak("Got it, you don't have a bachelor degree.")
+                    break
+                else:
+                    self.speak("Please answer yes or no. Do you have a three or four year bachelor degree?")
 
         # Get preferred locations
         self.speak("Which countries are you interested in studying in? For example, USA, Canada, or UK?")
