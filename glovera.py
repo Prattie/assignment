@@ -9,30 +9,43 @@ from dotenv import load_dotenv
 
 class GloveraSystem:
     def __init__(self):
+        print("Initializing Glovera System...")
         try:
-            print("Initializing Glovera System...")
-            load_dotenv()
-            
-            # Initialize both video and voice agents
+            # Initialize video bot
+            from video_bot import VideoBot
             self.video_bot = VideoBot()
-            self.interactive_agent = InteractiveEducationAgent()
-            self.calendar_integration = CalendarIntegration()
             
-            # Set interaction mode (video or voice)
-            self.interaction_mode = os.getenv('INTERACTION_MODE', 'voice')  # Default to voice if not specified
+            # Initialize interactive agent
+            from agent2 import InteractiveEducationAgent
+            self.interactive_agent = InteractiveEducationAgent()
+            
+            # Initialize calendar (with error handling)
+            try:
+                self.init_calendar()
+            except Exception as e:
+                print(f"Failed to initialize calendar integration: {e}")
+                
+            self.interaction_mode = "video"  # Default to video mode
             
         except Exception as e:
-            print(f"Error initializing Glovera System: {e}")
-            sys.exit(1)
+            print(f"Initialization error: {e}")
+            raise
 
     def main(self):
         try:
-            print(f"Starting Glovera System in {self.interaction_mode} mode...")
+            print("Starting Glovera System...")
             
-            if self.interaction_mode == 'video':
-                self.run_video_interaction()
-            else:
-                self.run_voice_interaction()
+            # Start with video interaction
+            print("Starting video conversation...")
+            self.video_bot.start_conversation()
+            
+            # Switch to interactive agent for detailed information
+            print("Collecting student information...")
+            student_data = self.interactive_agent.get_student_info()
+            
+            # Process eligibility and handle results
+            if student_data:
+                self.handle_eligibility_check(student_data)
                 
         except Exception as e:
             print(f"Error in main execution: {e}")
@@ -45,8 +58,9 @@ class GloveraSystem:
             print("Starting video conversation...")
             self.video_bot.start_conversation()
             
-            # Step 2: Collect student information
-            student_data = self.video_bot.collect_student_info()
+            # Step 2: Switch to agent for collecting information
+            print("Switching to interactive agent for detailed information...")
+            student_data = self.interactive_agent.get_student_info()
             if not student_data:
                 raise Exception("Failed to collect student data")
             
@@ -214,6 +228,35 @@ class GloveraSystem:
             self.interactive_agent.speak(
                 "I apologize, but we've encountered an error. "
                 "Please contact our support team for assistance."
+            )
+
+    def handle_eligibility_check(self, student_data):
+        """Process eligibility and present results"""
+        try:
+            # Check eligibility using the interactive agent
+            print("Checking eligibility...")
+            result = self.interactive_agent.process_eligibility_and_schedule(student_data)
+            
+            if result:
+                # Present results through video bot
+                if result.get("eligible", False):
+                    message = f"Great news! Based on your profile, you are eligible for several programs."
+                    self.video_bot.generate_video_response(message)
+                    
+                    # Handle meeting scheduling if requested
+                    if result.get("meeting_scheduled", False):
+                        self.video_bot.generate_video_response(
+                            "I've scheduled your consultation. You'll receive the details shortly."
+                        )
+                else:
+                    message = "Based on your profile, we might need to explore alternative options."
+                    self.video_bot.generate_video_response(message)
+                    
+        except Exception as e:
+            print(f"Error in eligibility check: {e}")
+            self.video_bot.generate_video_response(
+                "I apologize, but we've encountered an error while checking eligibility. "
+                "Our team will contact you shortly to assist you."
             )
 
 if __name__ == "__main__":
