@@ -10,264 +10,34 @@ from dotenv import load_dotenv
 class GloveraSystem:
     def __init__(self):
         print("Initializing Glovera System...")
-        try:
-            # Initialize video bot
-            from video_bot import VideoBot
-            self.video_bot = VideoBot()
-            
-            # Initialize interactive agent
-            from agent2 import InteractiveEducationAgent
-            self.interactive_agent = InteractiveEducationAgent()
-            
-            # Initialize calendar (with error handling)
-            try:
-                self.init_calendar()
-            except Exception as e:
-                print(f"Failed to initialize calendar integration: {e}")
-                
-            self.interaction_mode = "video"  # Default to video mode
-            
-        except Exception as e:
-            print(f"Initialization error: {e}")
-            raise
+        load_dotenv()
+        
+        # Initialize the VideoBot
+        self.video_bot = VideoBot()
+        
+        # Initialize the InteractiveEducationAgent
+        self.agent = InteractiveEducationAgent()
 
     def main(self):
         try:
             print("Starting Glovera System...")
             
-            # Start with video interaction
-            print("Starting video conversation...")
-            self.video_bot.start_conversation()
+            # Start the video conversation
+            self.video_bot.start_conversation()  # This should start the video chat
             
-            # Switch to interactive agent for detailed information
-            print("Collecting student information...")
-            student_data = self.interactive_agent.get_student_info()
+            # Collect student information using the agent
+            student_info = self.agent.get_student_info()  # This should use TTS to ask questions
             
-            # Process eligibility and handle results
-            if student_data:
-                self.handle_eligibility_check(student_data)
-                
+            # Create a script based on the collected information
+            script = self.agent.create_script()  # Assuming this method exists in agent2.py
+            
+            # Generate the video response using the VideoBot
+            video_response = self.video_bot.generate_video_response(script)
+            print(video_response)  # Print the result of the video generation
+            
         except Exception as e:
             print(f"Error in main execution: {e}")
-            self.handle_error(e)
-
-    def run_video_interaction(self):
-        """Handle video-based interaction flow"""
-        try:
-            # Step 1: Start video conversation
-            print("Starting video conversation...")
-            self.video_bot.start_conversation()
-            
-            # Step 2: Switch to agent for collecting information
-            print("Switching to interactive agent for detailed information...")
-            student_data = self.interactive_agent.get_student_info()
-            if not student_data:
-                raise Exception("Failed to collect student data")
-            
-            # Step 3: Check eligibility
-            print("Checking program eligibility...")
-            eligible_programs = check_eligibility(student_data)
-            
-            # Step 4: Present results via video
-            self.video_bot.present_eligibility_results(eligible_programs)
-            
-            # Step 5: Handle consultation scheduling
-            self.handle_scheduling_video()
-            
-        except Exception as e:
-            print(f"Error in video interaction: {e}")
-            self.video_bot.generate_video_response(
-                "I apologize, but we've encountered an error. "
-                "Our team will contact you shortly to assist you."
-            )
-
-    def run_voice_interaction(self):
-        """Handle voice-based interaction flow"""
-        try:
-            # Step 1: Collect student information
-            student_data = self.interactive_agent.get_student_info()
-            if not student_data:
-                raise Exception("Failed to collect student data")
-            
-            # Step 2: Check eligibility
-            print("Checking program eligibility...")
-            eligible_programs = check_eligibility(student_data)
-            
-            # Step 3: Present results via voice
-            response = format_eligibility_response(eligible_programs)
-            self.interactive_agent.speak(response)
-            
-            # Step 4: Handle consultation scheduling
-            self.handle_scheduling_voice()
-            
-        except Exception as e:
-            print(f"Error in voice interaction: {e}")
-            self.interactive_agent.speak(
-                "I apologize, but we've encountered an error. "
-                "Please contact our support team for assistance."
-            )
-
-    def handle_scheduling_video(self):
-        """Handle scheduling flow for video interaction"""
-        try:
-            # Offer consultation
-            self.video_bot.schedule_consultation()
-            
-            # Collect contact information
-            contact_info = self.video_bot.collect_contact_info()
-            
-            if contact_info:
-                # Schedule the meeting
-                meeting_time = datetime.now() + timedelta(days=1)
-                meeting_time = meeting_time.replace(hour=10, minute=0, second=0, microsecond=0)
-                
-                meeting_details = self.calendar_integration.schedule_meeting(
-                    contact_info['email'],
-                    meeting_time
-                )
-                
-                # End conversation with scheduling confirmation
-                self.video_bot.end_conversation(has_scheduled=True)
-            else:
-                # End conversation without scheduling
-                self.video_bot.end_conversation(has_scheduled=False)
-                
-        except Exception as e:
-            print(f"Error in video scheduling: {e}")
-            self.video_bot.generate_video_response(
-                "I'm having trouble with the scheduling system. "
-                "Our team will contact you to set up the consultation."
-            )
-
-    def handle_scheduling_voice(self):
-        """Handle scheduling flow for voice interaction"""
-        try:
-            self.interactive_agent.speak("Would you like to schedule a consultation?")
-            response = self.interactive_agent.listen()
-            
-            if response and any(word in response.lower() 
-                              for word in ['yes', 'sure', 'okay', 'yeah']):
-                
-                # Collect email
-                self.interactive_agent.speak("Please type your email address:")
-                email = input("Your email: ")
-                while not '@' in email or not '.' in email:
-                    print("Invalid email format. Please try again.")
-                    email = input("Your email: ")
-                
-                # Get preferred time slot
-                self.interactive_agent.speak("Please select your preferred time slot for tomorrow:")
-                self.interactive_agent.speak("1. Morning (10 AM)")
-                self.interactive_agent.speak("2. Afternoon (2 PM)")
-                self.interactive_agent.speak("3. Evening (5 PM)")
-                
-                time_slot = input("Enter slot number (1/2/3): ")
-                while time_slot not in ['1', '2', '3']:
-                    print("Invalid selection. Please enter 1, 2, or 3.")
-                    time_slot = input("Enter slot number (1/2/3): ")
-                
-                # Convert slot to time
-                slot_times = {
-                    '1': 10,  # 10 AM
-                    '2': 14,  # 2 PM
-                    '3': 17   # 5 PM
-                }
-                
-                # Schedule meeting
-                meeting_time = datetime.now() + timedelta(days=1)
-                meeting_time = meeting_time.replace(
-                    hour=slot_times[time_slot], 
-                    minute=0, 
-                    second=0, 
-                    microsecond=0
-                )
-                
-                try:
-                    # Try to schedule with calendar integration
-                    meeting_details = self.calendar_integration.schedule_meeting(
-                        email, 
-                        meeting_time
-                    )
-                except Exception as e:
-                    print(f"Calendar integration error: {e}")
-                    meeting_details = None
-                
-                # Confirm scheduling
-                time_str = meeting_time.strftime("%I:%M %p")
-                self.interactive_agent.speak(
-                    f"Perfect! I've scheduled your consultation for tomorrow at {time_str}. "
-                    f"You will receive a confirmation email at {email} with the meeting details."
-                )
-                
-                # Final thank you message
-                self.interactive_agent.speak(
-                    "Thank you for choosing Glovera! We look forward to helping you "
-                    "with your educational journey. Have a great day!"
-                )
-            else:
-                self.interactive_agent.speak(
-                    "No problem! Feel free to reach out to us whenever you'd like "
-                    "to schedule a consultation. Thank you for using Glovera!"
-                )
-            
-        except Exception as e:
-            print(f"Error in scheduling: {e}")
-            self.interactive_agent.speak(
-                "I apologize for the inconvenience. Please email us at support@glovera.com "
-                "to schedule your consultation. Thank you for your understanding."
-            )
-
-    def handle_error(self, error):
-        """Handle errors based on interaction mode"""
-        if self.interaction_mode == 'video':
-            self.video_bot.generate_video_response(
-                "I apologize, but we've encountered an error. "
-                "Our team will contact you shortly to assist you."
-            )
-        else:
-            self.interactive_agent.speak(
-                "I apologize, but we've encountered an error. "
-                "Please contact our support team for assistance."
-            )
-
-    def handle_eligibility_check(self, student_data):
-        """Process eligibility and present results"""
-        try:
-            # Check eligibility using the interactive agent
-            print("Checking eligibility...")
-            result = self.interactive_agent.process_eligibility_and_schedule(student_data)
-            
-            if result:
-                # Present results through video bot
-                if result.get("eligible", False):
-                    message = f"Great news! Based on your profile, you are eligible for several programs."
-                    self.video_bot.generate_video_response(message)
-                    
-                    # Handle meeting scheduling if requested
-                    if result.get("meeting_scheduled", False):
-                        self.video_bot.generate_video_response(
-                            "I've scheduled your consultation. You'll receive the details shortly."
-                        )
-                else:
-                    message = "Based on your profile, we might need to explore alternative options."
-                    self.video_bot.generate_video_response(message)
-                    
-        except Exception as e:
-            print(f"Error in eligibility check: {e}")
-            self.video_bot.generate_video_response(
-                "I apologize, but we've encountered an error while checking eligibility. "
-                "Our team will contact you shortly to assist you."
-            )
 
 if __name__ == "__main__":
-    try:
-        # Set up environment
-        load_dotenv()
-        
-        # Create and run Glovera system
-        glovera = GloveraSystem()
-        glovera.main()
-        
-    except Exception as e:
-        print(f"Critical error in Glovera System: {e}")
-        sys.exit(1)
+    glovera = GloveraSystem()
+    glovera.main()
